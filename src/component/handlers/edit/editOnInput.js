@@ -66,12 +66,60 @@ function editOnInput(): void {
     domText = domText.slice(0, -1);
   }
 
+  // Check if the input has mutated the DOM.
+  // For example, inline style change done via iOS popup menu.
+  const parentNode = anchorNode.parentNode;
+  const parentNodeName = parentNode.nodeName;
+  var inlineStyleChange;
+  if (parentNodeName !== "SPAN") {
+    let inlineStyles = {
+      'B': 'BOLD',
+      'I': 'ITALIC',
+      'U': 'UNDERLINE',
+    }
+    inlineStyleChange = inlineStyles[parentNodeName];
+  }
+
+  var selection = editorState.getSelection();
+
+  // Apply inline style change.
+  if (inlineStyleChange) {
+    var anchorOffset = start;
+
+    var previousSibling = parentNode.previousSibling;
+    if (previousSibling) {
+      anchorOffset += previousSibling.textContent.length;
+    }
+
+    var focusOffset = anchorOffset + domText.length;
+    var styleTargetRange = selection.merge({
+      anchorOffset: anchorOffset,
+      focusOffset: focusOffset,
+      isBackward: false,
+    });
+
+    const newContent = DraftModifier.applyInlineStyle(
+      content,
+      styleTargetRange,
+      inlineStyleChange,
+    );
+
+    this.update(
+      EditorState.push(
+        editorState,
+        newContent,
+        'change-inline-style',
+      )
+    );
+
+    return;
+  }
+
   // No change -- the DOM is up to date. Nothing to do here.
   if (domText === modelText) {
     return;
   }
 
-  var selection = editorState.getSelection();
 
   // We'll replace the entire leaf with the text content of the target.
   var targetRange = selection.merge({
